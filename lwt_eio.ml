@@ -37,7 +37,7 @@ let make_engine ~sw ~clock = object
     Ctf.label "await_readable";
     while true do
       Eio_linux.await_readable fd;
-      callback (); notify ()
+      Eio.Cancel.protect (fun () -> callback (); notify ())
     done
 
   method private register_writable fd callback =
@@ -46,7 +46,7 @@ let make_engine ~sw ~clock = object
     Ctf.label "await_writable";
     while true do
       Eio_linux.await_writable fd;
-      callback (); notify ()
+      Eio.Cancel.protect (fun () -> callback (); notify ())
     done
 
   method private register_timer delay repeat callback =
@@ -55,11 +55,11 @@ let make_engine ~sw ~clock = object
     if repeat then (
       while true do
         Eio.Time.sleep clock delay;
-        callback (); notify ()
+        Eio.Cancel.protect (fun () -> callback (); notify ())
       done
     ) else (
       Eio.Time.sleep clock delay;
-      callback (); notify ()
+      Eio.Cancel.protect (fun () -> callback (); notify ())
     )
 
   method iter block =
@@ -118,8 +118,8 @@ module Promise = struct
     let p, r = Lwt.wait () in
     Fibre.fork ~sw (fun () ->
         match Promise.await_result eio_promise with
-        | Ok x -> Lwt.wakeup r x
-        | Error ex -> Lwt.wakeup_exn r ex
+        | Ok x -> Lwt.wakeup r x; notify ()
+        | Error ex -> Lwt.wakeup_exn r ex; notify ()
       );
     p
 end
