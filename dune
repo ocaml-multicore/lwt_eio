@@ -1,0 +1,3 @@
+(executables
+  (names simple chat)
+  (libraries eio_main logs.fmt ctf.unix lwt.unix))
