@@ -111,7 +111,7 @@ module Lwt_server = struct
         (traceln "Lwt connection failed: %a" Fmt.exn);
       aux ()
     in
-    aux ()
+    Lwt.finalize aux (fun () -> Lwt_unix.close socket)
 end
 
 let () =
