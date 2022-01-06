@@ -20,8 +20,8 @@ let notify () = Lazy.force !ready
 let fork_with_cancel ~sw fn =
   let cancel = ref None in
   Fibre.fork_sub ~sw ~on_error:ignore_cancel (fun sw ->
-      cancel := Some (lazy (Switch.turn_off sw Cancel));
-      fn ()
+      cancel := Some (lazy (Switch.fail sw Cancel));
+      fn sw
     );
   (* The forked fibre runs first, so [cancel] must be set by now. *)
   Option.get !cancel
@@ -29,28 +29,28 @@ let fork_with_cancel ~sw fn =
 let make_engine ~sw ~clock = object
   inherit Lwt_engine.abstract
 
-  method private cleanup = Switch.turn_off sw Exit
+  method private cleanup = Switch.fail sw Exit
 
   method private register_readable fd callback =
-    let fd = Eio_linux.FD.of_unix ~sw ~seekable:false fd in
-    fork_with_cancel ~sw @@ fun () ->
+    fork_with_cancel ~sw @@ fun sw ->
     Ctf.label "await_readable";
+    let fd = Eio_linux.FD.of_unix ~sw ~seekable:false ~close_unix:false fd in
     while true do
       Eio_linux.await_readable fd;
       Eio.Cancel.protect (fun () -> callback (); notify ())
     done
 
   method private register_writable fd callback =
-    let fd = Eio_linux.FD.of_unix ~sw ~seekable:false fd in
-    fork_with_cancel ~sw @@ fun () ->
+    fork_with_cancel ~sw @@ fun sw ->
     Ctf.label "await_writable";
+    let fd = Eio_linux.FD.of_unix ~sw ~seekable:false ~close_unix:false fd in
     while true do
       Eio_linux.await_writable fd;
       Eio.Cancel.protect (fun () -> callback (); notify ())
     done
 
   method private register_timer delay repeat callback =
-    fork_with_cancel ~sw @@ fun () ->
+    fork_with_cancel ~sw @@ fun _sw ->
     Ctf.label "await timer";
     if repeat then (
       while true do
@@ -86,7 +86,7 @@ let main ~clock user_promise : no_return =
   Lwt.register_pause_notifier (fun _ -> notify ());
   Lwt_main.run user_promise;
   (* Stop any event fibres still running: *)
-  raise Exit
+  raise (Eio.Cancel.Cancelled Exit)
 
 let with_event_loop ~clock fn =
   let p, r = Lwt.wait () in
@@ -94,13 +94,13 @@ let with_event_loop ~clock fn =
   Fibre.fork ~sw (fun () ->
       match main ~clock p with
       | _ -> .
-      | exception Exit -> ()
+      | exception (Eio.Cancel.Cancelled Exit) -> ()
     );
   Fun.protect fn
     ~finally:(fun () ->
-      Lwt.wakeup r ();
-      notify ()
-    )
+        Lwt.wakeup r ();
+        notify ()
+      )
 
 let get_loop_switch () =
   match !loop_switch with
