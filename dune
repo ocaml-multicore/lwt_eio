@@ -1,3 +1,4 @@
 (executables
   (names simple chat)
-  (libraries eio_main logs.fmt ctf.unix lwt.unix))
+  (libraries eio_main lwt_eio logs.fmt ctf.unix))
+(vendored_dirs eio)

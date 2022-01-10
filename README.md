@@ -5,7 +5,7 @@ Status: experimental
 Lwt_eio is an Lwt engine that uses Eio.
 It can be used to run Lwt and Eio code in a single domain.
 
-See `lwt_eio.mli` for the API.
+See `lib/lwt_eio.mli` for the API.
 
 # Examples
 
@@ -65,3 +65,11 @@ Hello from client B
 ```
 
 Both clients should show all messages.
+
+# Limitations
+
+- Lwt code can only run in a single domain, and using `Lwt_eio` does not change this.
+  You can only run Lwt code in the domain that ran `Lwt_eio.with_event_loop`.
+
+- `Lwt_eio` does not make your Lwt programs run faster than before.
+  Lwt jobs are still run by Lwt, and do not take advantage of Eio's io_uring support, for example.
