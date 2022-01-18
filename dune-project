@@ -1,4 +1,5 @@
 (lang dune 2.9)
+(name lwt_eio)
 (formatting disabled)
 (generate_opam_files true)
 (source (github ocaml-multicore/eio))
