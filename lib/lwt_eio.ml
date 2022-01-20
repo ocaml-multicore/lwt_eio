@@ -121,3 +121,13 @@ module Promise = struct
       );
     p
 end
+
+let run_eio fn =
+  let sw = get_loop_switch () in
+  let p, r = Lwt.wait () in
+  Fibre.fork ~sw (fun () ->
+      match fn () with
+      | x -> Lwt.wakeup r x; notify ()
+      | exception ex -> Lwt.wakeup_exn r ex; notify ()
+    );
+  p
