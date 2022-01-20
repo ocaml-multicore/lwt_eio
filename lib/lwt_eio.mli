@@ -13,6 +13,12 @@ module Promise : sig
       This can only be used while the event loop created by {!with_event_loop} is still running. *)
 end
 
+val run_eio : (unit -> 'a) -> 'a Lwt.t 
+(** [run_eio fn] allows running Eio code from within a Lwt function.
+    It runs [fn ()] in a new Eio fibre and returns a promise for the result.
+    The new fibre is attached to the Lwt event loop's switch and will be
+    cancelled if the function passed to {!with_event_loop} returns. *)
+
 val notify : unit -> unit
 (** [notify ()] causes [Lwt_engine.iter] to return,
     indicating that the event loop should run the hooks and resume yielded threads.
