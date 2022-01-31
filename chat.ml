@@ -47,7 +47,8 @@ module Eio_server = struct
 
   let run ~net ~port (prod, cons) =
     Switch.run @@ fun sw ->
-    let socket = Eio.Net.listen ~sw ~reuse_addr:true net ~backlog:5 (`Tcp (Unix.inet_addr_loopback, port)) in
+    let socket = Eio.Net.listen ~sw ~reuse_addr:true net ~backlog:5
+        (`Tcp (Eio.Net.Ipaddr.V4.loopback, port)) in
     traceln "Eio fibre waiting for connections on %d..." port;
     while true do
       Eio.Net.accept_sub ~sw socket ~on_error:(traceln "Eio connection failed: %a" Fmt.exn)
@@ -104,7 +105,7 @@ module Lwt_server = struct
     traceln "Lwt thread waiting for connections on %d..." port;
     let rec aux () =
       let* client, addr = Lwt_unix.accept socket in
-      let addr = match addr with Lwt_unix.ADDR_INET (h, p) -> `Tcp (h, p) | _ -> assert false in
+      let addr = match addr with Lwt_unix.ADDR_INET (h, p) -> `Tcp (Eio_unix.Ipaddr.of_unix h, p) | _ -> assert false in
       Stream.add prod (Fmt.str "Got connection from %a via Lwt@." Eio.Net.Sockaddr.pp addr);
       Lwt.dont_wait
         (fun () -> handle_client client (prod, cons))
