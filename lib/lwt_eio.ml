@@ -20,7 +20,7 @@ let notify () = Lazy.force !ready
 let fork_with_cancel ~sw fn =
   let cancel = ref None in
   Fibre.fork_sub ~sw ~on_error:ignore_cancel (fun sw ->
-      cancel := Some (lazy (Switch.fail sw Cancel));
+      cancel := Some (lazy (try Switch.fail sw Cancel with Invalid_argument _ -> ()));
       fn ()
     );
   (* The forked fibre runs first, so [cancel] must be set by now. *)
@@ -29,7 +29,9 @@ let fork_with_cancel ~sw fn =
 let make_engine ~sw ~clock = object
   inherit Lwt_engine.abstract
 
-  method private cleanup = Switch.fail sw Exit
+  method private cleanup =
+    try Switch.fail sw Exit
+    with Invalid_argument _ -> ()            (* Already destroyed *)
 
   method private register_readable fd callback =
     fork_with_cancel ~sw @@ fun () ->
