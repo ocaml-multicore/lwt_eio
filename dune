@@ -1,3 +1,7 @@
 (executables
   (names simple chat)
   (libraries eio_main lwt_eio logs.fmt ctf.unix))
+
+(mdx
+  (packages lwt_eio)
+  (files README.md))

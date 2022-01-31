@@ -13,4 +13,6 @@
  (depends
   eio
   lwt
+  (mdx (and (>= 1.10.0) :with-test))
   (eio_main :with-test)))
+(using mdx 0.1)
