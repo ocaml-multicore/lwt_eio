@@ -141,7 +141,7 @@ d
 Here, we're using the Eio event loop instead of the normal Lwt one,
 but everything else stays the same.
 
-When I first tried this, it failed with `Fatal error: exception Unhandled`
+Note: When I first tried this, it failed with `Fatal error: exception Unhandled`
 because I'd forgotten to flush stdout in the Lwt code.
 That meant that `sort` returned before Lwt had completely finished and then it
 tried to flush lazily after the Eio loop had finished, which is an error.
@@ -256,7 +256,7 @@ Finally, we can convert `sort`'s callback to Eio code and drop the use of `Lwt` 
 ```ocaml
 # let sort ~src ~dst =
     process_lines ~src ~dst @@ fun lines ->
-    Fibre.yield ();
+    Fibre.yield ();     (* Simulate async work *)
     List.sort String.compare lines;;
 val sort : src:#Eio.Flow.read -> dst:#Eio.Flow.write -> unit = <fun>
 
@@ -279,6 +279,9 @@ Key points:
 
 - Never call Eio code directly from Lwt code. Wrap it with `Lwt_eio.run_eio`.
   Simply wrapping the result of an Eio call with `Lwt.return` is NOT safe.
+
+- Almost all uses of Lwt promises (`Lwt.t`) should disappear
+  (do not blindly replace Lwt promises with Eio promises).
 
 - You don't have to do the conversion in any particular order.
 
