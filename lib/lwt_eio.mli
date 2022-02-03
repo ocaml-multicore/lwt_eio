@@ -8,9 +8,12 @@ module Promise : sig
       much like {!Eio.Promise.await} does for Eio promises.
       This can only be used while the event loop created by {!with_event_loop} is still running. *)
 
-  val await_eio : 'a Eio.Std.Promise.t -> 'a Lwt.t
+  val await_eio : 'a Eio.Promise.t -> 'a Lwt.t
   (** [await_eio p] allows a Lwt thread to wait for an Eio promise [p] to be resolved.
       This can only be used while the event loop created by {!with_event_loop} is still running. *)
+
+  val await_eio_result : 'a Eio.Promise.or_exn -> 'a Lwt.t
+  (** [await_eio_result] is like [await_eio], but allows failing the lwt thread too. *)
 end
 
 val run_eio : (unit -> 'a) -> 'a Lwt.t 

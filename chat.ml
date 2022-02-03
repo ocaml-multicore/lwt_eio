@@ -21,7 +21,7 @@ module Stream = struct
 
   let add prod msg =
     let cons, resolver = Promise.create () in
-    Promise.fulfill prod.resolver (msg, Cons cons);
+    Promise.resolve prod.resolver (msg, Cons cons);
     prod.resolver <- resolver
 end
 
@@ -38,7 +38,7 @@ module Eio_server = struct
          try
            while true do
              let buf = Cstruct.create 100 in
-             let len = Eio.Flow.read_into flow buf in
+             let len = Eio.Flow.read flow buf in
              Stream.add prod (Cstruct.to_string buf ~len)
            done
          with End_of_file ->

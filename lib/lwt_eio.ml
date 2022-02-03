@@ -65,7 +65,7 @@ let make_engine ~sw ~clock = object
   method iter block =
     if block then (
       let p, r = Promise.create () in
-      ready := lazy (Promise.fulfill r ());
+      ready := lazy (Promise.resolve r ());
       Promise.await p
     ) else (
       Fibre.yield ()
@@ -110,14 +110,23 @@ let get_loop_switch () =
 module Promise = struct
   let await_lwt lwt_promise =
     let p, r = Promise.create () in
-    Lwt.on_any lwt_promise (Promise.fulfill r) (Promise.break r);
-    Promise.await p
+    Lwt.on_any lwt_promise (Promise.resolve_ok r) (Promise.resolve_error r);
+    Promise.await_exn p
 
   let await_eio eio_promise =
     let sw = get_loop_switch () in
     let p, r = Lwt.wait () in
     Fibre.fork ~sw (fun () ->
-        match Promise.await_result eio_promise with
+        Lwt.wakeup r (Promise.await eio_promise);
+        notify ()
+      );
+    p
+
+  let await_eio_result eio_promise =
+    let sw = get_loop_switch () in
+    let p, r = Lwt.wait () in
+    Fibre.fork ~sw (fun () ->
+        match Promise.await eio_promise with
         | Ok x -> Lwt.wakeup r x; notify ()
         | Error ex -> Lwt.wakeup_exn r ex; notify ()
       );

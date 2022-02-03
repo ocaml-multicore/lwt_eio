@@ -1,8 +1,7 @@
 pin-depends: [
-  ["uring.dev" "git+https://github.com/ocaml-multicore/ocaml-uring.git#22f59b8c08753e7dbafae279ef8bde2edf0c29b5"]
-  ["ctf.dev" "git+https://github.com/ocaml-multicore/eio.git#781dc09b24ada8d152c487d86e694ab37921e13c"]
-  ["eio.dev" "git+https://github.com/ocaml-multicore/eio.git#781dc09b24ada8d152c487d86e694ab37921e13c"]
-  ["eio_linux.dev" "git+https://github.com/ocaml-multicore/eio.git#781dc09b24ada8d152c487d86e694ab37921e13c"]
-  ["eio_luv.dev" "git+https://github.com/ocaml-multicore/eio.git#781dc09b24ada8d152c487d86e694ab37921e13c"]
-  ["eio_main.dev" "git+https://github.com/ocaml-multicore/eio.git#781dc09b24ada8d152c487d86e694ab37921e13c"]
+  ["ctf.dev" "git+https://github.com/ocaml-multicore/eio.git#231e473d98d00ab39a560a82a0ced79ed6427c40"]
+  ["eio.dev" "git+https://github.com/ocaml-multicore/eio.git#231e473d98d00ab39a560a82a0ced79ed6427c40"]
+  ["eio_linux.dev" "git+https://github.com/ocaml-multicore/eio.git#231e473d98d00ab39a560a82a0ced79ed6427c40"]
+  ["eio_luv.dev" "git+https://github.com/ocaml-multicore/eio.git#231e473d98d00ab39a560a82a0ced79ed6427c40"]
+  ["eio_main.dev" "git+https://github.com/ocaml-multicore/eio.git#231e473d98d00ab39a560a82a0ced79ed6427c40"]
 ]
