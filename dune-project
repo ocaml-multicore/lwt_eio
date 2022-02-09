@@ -2,7 +2,7 @@
 (name lwt_eio)
 (formatting disabled)
 (generate_opam_files true)
-(source (github ocaml-multicore/eio))
+(source (github talex5/lwt_eio))
 (license ISC)
 (authors "Thomas Leonard")
 (maintainers "talex5@gmail.com")

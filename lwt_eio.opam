@@ -6,8 +6,8 @@ description:
 maintainer: ["talex5@gmail.com"]
 authors: ["Thomas Leonard"]
 license: "ISC"
-homepage: "https://github.com/ocaml-multicore/eio"
-bug-reports: "https://github.com/ocaml-multicore/eio/issues"
+homepage: "https://github.com/talex5/lwt_eio"
+bug-reports: "https://github.com/talex5/lwt_eio/issues"
 depends: [
   "dune" {>= "2.9"}
   "eio"
@@ -32,4 +32,4 @@ build: [
   ]
   ["dune" "install" "-p" name "--create-install-files" name]
 ]
-dev-repo: "git+https://github.com/ocaml-multicore/eio.git"
+dev-repo: "git+https://github.com/talex5/lwt_eio.git"
