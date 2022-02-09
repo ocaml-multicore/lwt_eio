@@ -1,2 +1,2 @@
 all:
-	dune runtest
+	dune build @runtest @check

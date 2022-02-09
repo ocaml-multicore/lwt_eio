@@ -33,10 +33,3 @@ build: [
   ["dune" "install" "-p" name "--create-install-files" name]
 ]
 dev-repo: "git+https://github.com/ocaml-multicore/eio.git"
-pin-depends: [
-  ["ctf.dev" "git+https://github.com/ocaml-multicore/eio.git#781dc09b24ada8d152c487d86e694ab37921e13c"]
-  ["eio.dev" "git+https://github.com/ocaml-multicore/eio.git#781dc09b24ada8d152c487d86e694ab37921e13c"]
-  ["eio_linux.dev" "git+https://github.com/ocaml-multicore/eio.git#781dc09b24ada8d152c487d86e694ab37921e13c"]
-  ["eio_luv.dev" "git+https://github.com/ocaml-multicore/eio.git#781dc09b24ada8d152c487d86e694ab37921e13c"]
-  ["eio_main.dev" "git+https://github.com/ocaml-multicore/eio.git#781dc09b24ada8d152c487d86e694ab37921e13c"]
-]

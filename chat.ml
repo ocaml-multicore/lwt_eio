@@ -116,7 +116,7 @@ module Lwt_server = struct
 end
 
 let () =
-  (* Ctf_unix.with_tracing "/tmp/trace.ctf" @@ fun () -> *)
+  (* Eio_unix.Ctf.with_tracing "/tmp/trace.ctf" @@ fun () -> *)
   Eio_main.run @@ fun env ->
   let clock = Eio.Stdenv.clock env in
   let net = Eio.Stdenv.net env in
