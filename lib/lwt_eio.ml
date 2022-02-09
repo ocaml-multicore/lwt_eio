@@ -35,7 +35,6 @@ let make_engine ~sw ~clock = object
 
   method private register_readable fd callback =
     fork_with_cancel ~sw @@ fun () ->
-    Ctf.label "await_readable";
     while true do
       Eio_unix.await_readable fd;
       Eio.Cancel.protect (fun () -> callback (); notify ())
@@ -43,7 +42,6 @@ let make_engine ~sw ~clock = object
 
   method private register_writable fd callback =
     fork_with_cancel ~sw @@ fun () ->
-    Ctf.label "await_writable";
     while true do
       Eio_unix.await_writable fd;
       Eio.Cancel.protect (fun () -> callback (); notify ())
@@ -51,7 +49,6 @@ let make_engine ~sw ~clock = object
 
   method private register_timer delay repeat callback =
     fork_with_cancel ~sw @@ fun () ->
-    Ctf.label "await timer";
     if repeat then (
       while true do
         Eio.Time.sleep clock delay;
