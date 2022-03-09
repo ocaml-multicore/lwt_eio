@@ -11,7 +11,7 @@
  (synopsis "Run Lwt code within Eio")
  (description "An Lwt engine that allows running Lwt within an Eio event loop.")
  (depends
-  eio
+  (eio (>= 0.2))
   lwt
   (mdx (and (>= 1.10.0) :with-test))
   (eio_main :with-test)))

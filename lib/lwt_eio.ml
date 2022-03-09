@@ -9,21 +9,21 @@ let ignore_cancel = function
 (* Call this to cause the current [Lwt_engine.iter] to return. *)
 let ready = ref (lazy ())
 
-(* While the Lwt event loop is running, this is the switch that contains any fibres handling Lwt operations.
+(* While the Lwt event loop is running, this is the switch that contains any fibers handling Lwt operations.
    Lwt does not use structured concurrency, so it can spawn background threads without explicitly taking a
    switch argument, which is why we need to use a global variable here. *)
 let loop_switch = ref None
 
 let notify () = Lazy.force !ready
 
-(* Run [fn] in a new fibre and return a lazy value that can be forced to cancel it. *)
+(* Run [fn] in a new fiber and return a lazy value that can be forced to cancel it. *)
 let fork_with_cancel ~sw fn =
   let cancel = ref None in
-  Fibre.fork_sub ~sw ~on_error:ignore_cancel (fun sw ->
+  Fiber.fork_sub ~sw ~on_error:ignore_cancel (fun sw ->
       cancel := Some (lazy (try Switch.fail sw Cancel with Invalid_argument _ -> ()));
       fn ()
     );
-  (* The forked fibre runs first, so [cancel] must be set by now. *)
+  (* The forked fiber runs first, so [cancel] must be set by now. *)
   Option.get !cancel
 
 let make_engine ~sw ~clock = object
@@ -65,7 +65,7 @@ let make_engine ~sw ~clock = object
       ready := lazy (Promise.resolve r ());
       Promise.await p
     ) else (
-      Fibre.yield ()
+      Fiber.yield ()
     )
 end
 
@@ -78,17 +78,17 @@ let main ~clock user_promise : no_return =
   Switch.on_release sw (fun () -> loop_switch := None);
   loop_switch := Some sw;
   Lwt_engine.set (make_engine ~sw ~clock);
-  (* An Eio fibre may resume an Lwt thread while in [Lwt_engine.iter] and forget to call [notify].
+  (* An Eio fiber may resume an Lwt thread while in [Lwt_engine.iter] and forget to call [notify].
      If that called [Lwt.pause] then it wouldn't wake up, so handle this common case here. *)
   Lwt.register_pause_notifier (fun _ -> notify ());
   Lwt_main.run user_promise;
-  (* Stop any event fibres still running: *)
+  (* Stop any event fibers still running: *)
   raise Exit
 
 let with_event_loop ~clock fn =
   let p, r = Lwt.wait () in
   Switch.run @@ fun sw ->
-  Fibre.fork ~sw (fun () ->
+  Fiber.fork ~sw (fun () ->
       match main ~clock p with
       | _ -> .
       | exception Exit -> ()
@@ -113,7 +113,7 @@ module Promise = struct
   let await_eio eio_promise =
     let sw = get_loop_switch () in
     let p, r = Lwt.wait () in
-    Fibre.fork ~sw (fun () ->
+    Fiber.fork ~sw (fun () ->
         Lwt.wakeup r (Promise.await eio_promise);
         notify ()
       );
@@ -122,7 +122,7 @@ module Promise = struct
   let await_eio_result eio_promise =
     let sw = get_loop_switch () in
     let p, r = Lwt.wait () in
-    Fibre.fork ~sw (fun () ->
+    Fiber.fork ~sw (fun () ->
         match Promise.await eio_promise with
         | Ok x -> Lwt.wakeup r x; notify ()
         | Error ex -> Lwt.wakeup_exn r ex; notify ()
@@ -133,7 +133,7 @@ end
 let run_eio fn =
   let sw = get_loop_switch () in
   let p, r = Lwt.wait () in
-  Fibre.fork ~sw (fun () ->
+  Fiber.fork ~sw (fun () ->
       match fn () with
       | x -> Lwt.wakeup r x; notify ()
       | exception ex -> Lwt.wakeup_exn r ex; notify ()
