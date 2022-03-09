@@ -32,7 +32,7 @@ module Eio_server = struct
       Eio.Flow.copy_string msg flow;
       send cons
     in
-    Fibre.first
+    Fiber.first
       (fun () -> send cons)
       (fun () ->
          try
@@ -49,7 +49,7 @@ module Eio_server = struct
     Switch.run @@ fun sw ->
     let socket = Eio.Net.listen ~sw ~reuse_addr:true net ~backlog:5
         (`Tcp (Eio.Net.Ipaddr.V4.loopback, port)) in
-    traceln "Eio fibre waiting for connections on %d..." port;
+    traceln "Eio fiber waiting for connections on %d..." port;
     while true do
       Eio.Net.accept_sub ~sw socket ~on_error:(traceln "Eio connection failed: %a" Fmt.exn)
         (fun ~sw:_ flow addr ->
@@ -122,6 +122,6 @@ let () =
   let net = Eio.Stdenv.net env in
   Lwt_eio.with_event_loop ~clock @@ fun () ->
   let stream = Stream.create () in
-  Fibre.both
+  Fiber.both
     (fun () -> Eio_server.run ~port:8001 stream ~net)
     (fun () -> Lwt_eio.Promise.await_lwt (Lwt_server.run ~port:8002 stream))

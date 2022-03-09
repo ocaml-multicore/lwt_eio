@@ -10,20 +10,20 @@ See `lib/lwt_eio.mli` for the API.
 
 There are two example programs:
 
-- `simple.ml` runs a Lwt thread and an Eio fibre, communicating over a pair of streams.
+- `simple.ml` runs a Lwt thread and an Eio fiber, communicating over a pair of streams.
 - `chat.ml` runs a chat server.
-  An Eio fibre accepts (loopback) connections on port 8001, while a Lwt thread accepts connections on port 8002.
+  An Eio fiber accepts (loopback) connections on port 8001, while a Lwt thread accepts connections on port 8002.
   All clients on either port see the room history, which consists of all messages sent by any client as well as join/leave events.
 
 ```
 $ dune exec -- ./simple.exe
-+Eio fibre waiting...
++Eio fiber waiting...
 Lwt thread sleeping...
 Lwt thread sending 1 to Eio
-+Eio fibre got "1" from Lwt
-+Eio fibre sleeping...
-+Eio fibre sending 2 to Lwt...
-+Eio fibre done
++Eio fiber got "1" from Lwt
++Eio fiber sleeping...
++Eio fiber sending 2 to Lwt...
++Eio fiber done
 Lwt got "2" from Eio
 ```
 
@@ -31,7 +31,7 @@ To use the chat example, start the server in a terminal:
 
 ```
 $ dune exec -- ./chat.exe
-+Eio fibre waiting for connections on 8001...
++Eio fiber waiting for connections on 8001...
 +Lwt thread waiting for connections on 8002...
 ```
 
@@ -257,7 +257,7 @@ Finally, we can convert `sort`'s callback to Eio code and drop the use of `Lwt` 
 ```ocaml
 # let sort ~src ~dst =
     process_lines ~src ~dst @@ fun lines ->
-    Fibre.yield ();     (* Simulate async work *)
+    Fiber.yield ();     (* Simulate async work *)
     List.sort String.compare lines;;
 val sort : src:#Eio.Flow.source -> dst:#Eio.Flow.sink -> unit = <fun>
 
@@ -290,4 +290,4 @@ Key points:
 
   - External resources (such as `stdout`, the network and the filesystem) should be passed as inputs to Eio code.
 
-  - Take a `Switch.t` argument if your function creates fibres or file handles that out-live the function.
+  - Take a `Switch.t` argument if your function creates fibers or file handles that out-live the function.
