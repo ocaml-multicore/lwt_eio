@@ -2,6 +2,12 @@ open Eio.Std
 
 exception Cancel
 
+module Token = struct
+  [@@@warning "-65"]
+  type t = ()
+  let v : t = ()
+end
+
 let ignore_cancel = function
   | Cancel -> ()
   | ex -> raise ex
@@ -93,7 +99,7 @@ let with_event_loop ~clock fn =
       | _ -> .
       | exception Exit -> ()
     );
-  Fun.protect fn
+  Fun.protect (fun () -> fn Token.v)
     ~finally:(fun () ->
         Lwt.wakeup r ();
         notify ()
