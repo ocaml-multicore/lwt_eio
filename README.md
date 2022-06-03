@@ -125,7 +125,7 @@ The first step is to replace `Lwt_main.run`, and check that the program still wo
 # open Eio.Std;;
 
 # Eio_main.run @@ fun env ->
-  Lwt_eio.with_event_loop ~clock:env#clock @@ fun () ->
+  Lwt_eio.with_event_loop ~clock:env#clock @@ fun _ ->
   Lwt_eio.Promise.await_lwt begin
     let input = Lwt_io.(of_bytes ~mode:input)
       (Lwt_bytes.of_bytes (Bytes.of_string "b\na\nd\nc\n")) in
@@ -192,7 +192,7 @@ We can now test it using an Eio flow:
 val sort : #Eio.Flow.source -> unit Lwt.t = <fun>
 
 # Eio_main.run @@ fun env ->
-  Lwt_eio.with_event_loop ~clock:env#clock @@ fun () ->
+  Lwt_eio.with_event_loop ~clock:env#clock @@ fun _ ->
   Lwt_eio.Promise.await_lwt begin
     sort (Eio.Flow.string_source "b\na\nd\nc\n")
   end;;
@@ -241,7 +241,7 @@ We can therefore now call it directly from Eio:
 
 ```ocaml
 # Eio_main.run @@ fun env ->
-  Lwt_eio.with_event_loop ~clock:env#clock @@ fun () ->
+  Lwt_eio.with_event_loop ~clock:env#clock @@ fun _ ->
   sort
     ~src:(Eio.Flow.string_source "b\na\nd\nc\n")
     ~dst:env#stdout;;
@@ -291,3 +291,6 @@ Key points:
   - External resources (such as `stdout`, the network and the filesystem) should be passed as inputs to Eio code.
 
   - Take a `Switch.t` argument if your function creates fibers or file handles that out-live the function.
+
+  - If you are writing a library that requires `Lwt_eio`, consider having its main function (if any)
+    take a value of type `Lwt_eio.Token.t`. This will remind users of the library to initialise Lwt_eio first.

@@ -1,5 +1,18 @@
-val with_event_loop : clock:#Eio.Time.clock -> (unit -> 'a) -> 'a
-(** [with_event_loop ~clock fn] starts an Lwt event loop running and then executes [fn ()].
+module Token : sig
+  [@@@warning "-65"]
+  type t = private ()
+  (** A token indicating that Lwt_eio was started.
+
+      If a library needs Lwt_eio to be running, it can request this token to remind the application
+      to initialise it. This is most useful if a library has a main entry point, or some configuration
+      value that has to be constructed before the library is used.
+
+      This type should be treated as abstract, but it is defined as [private ()] to avoid breaking
+      existing code. *)
+end
+
+val with_event_loop : clock:#Eio.Time.clock -> (Token.t -> 'a) -> 'a
+(** [with_event_loop ~clock fn] starts an Lwt event loop running and then executes [fn t].
     When that finishes, the event loop is stopped. *)
 
 module Promise : sig
