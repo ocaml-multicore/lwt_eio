@@ -237,3 +237,27 @@ Key points:
 
 - `Lwt_eio` does not make your Lwt programs run faster than before.
   Lwt jobs are still run by Lwt, and do not take advantage of Eio's `io_uring` support, for example.
+
+- `Lwt_unix.fork` internally uses `Unix.fork`, and therefore cannot be used when multiple domains are active.
+
+
+## How it works
+
+Integration with Lwt is quite simple, as Lwt already has support for pluggable event loops.
+When Lwt wants to wait for a file descriptor to become ready, it calls Lwt_eio,
+which forks a new Eio fiber to perform the appropriate operation
+(`Eio_unix.await_readable`, etc) and then calls Lwt's callback.
+
+If Lwt wants to run a blocking operation, it will use a thread from its pool of systhreads to do that.
+When the operation is complete, the systhread signals the main thread by making a notification file descriptor become ready,
+and this is then picked up by the main event loop in the usual way.
+
+Signals registered with `Lwt_unix.on_signal` likewise work by waking the main thread.
+
+What all of this means is that Lwt threads and Eio fibers are scheduled using a single queue and do not starve each other
+(any more than cooperative threads would do when not mixing concurrency systems).
+
+If an Eio fiber is cancelled while running `run_lwt`, it cancels the Lwt promise too.
+If the Lwt promise returned by `run_eio` is cancelled, the Eio fiber is cancelled too.
+
+See [test/test.md](./test/test.md) for some tests of this.
