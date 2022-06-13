@@ -145,3 +145,6 @@ let run_eio fn =
       | exception ex -> Lwt.wakeup_exn r ex; notify ()
     );
   p
+
+let run_lwt fn =
+  Promise.await_lwt (fn ())
