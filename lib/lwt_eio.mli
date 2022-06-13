@@ -32,8 +32,14 @@ end
 val run_eio : (unit -> 'a) -> 'a Lwt.t 
 (** [run_eio fn] allows running Eio code from within a Lwt function.
     It runs [fn ()] in a new Eio fiber and returns a promise for the result.
-    The new fiber is attached to the Lwt event loop's switch and will be
+    If the returned promise is cancelled, it will cancel the Eio fiber.
+    The new fiber is attached to the Lwt event loop's switch and will also be
     cancelled if the function passed to {!with_event_loop} returns. *)
+
+val run_lwt : (unit -> 'a Lwt.t) -> 'a
+(** [run_lwt fn] allows running Lwt code from within an Eio function.
+    It runs [fn ()] to create a Lwt promise and then awaits it.
+    If the Eio fiber is cancelled, the Lwt promise is cancelled too. *)
 
 val notify : unit -> unit
 (** [notify ()] causes [Lwt_engine.iter] to return,

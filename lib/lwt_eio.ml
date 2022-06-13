@@ -138,10 +138,25 @@ end
 
 let run_eio fn =
   let sw = get_loop_switch () in
-  let p, r = Lwt.wait () in
+  let p, r = Lwt.task () in
+  let cc = ref None in
   Fiber.fork ~sw (fun () ->
-      match fn () with
-      | x -> Lwt.wakeup r x; notify ()
-      | exception ex -> Lwt.wakeup_exn r ex; notify ()
+      Eio.Cancel.sub (fun cancel ->
+          cc := Some cancel;
+          match fn () with
+          | x -> Lwt.wakeup r x; notify ()
+          | exception ex -> Lwt.wakeup_exn r ex; notify ()
+        )
     );
+  Lwt.on_cancel p (fun () -> Option.iter (fun cc -> Eio.Cancel.cancel cc Lwt.Canceled) !cc);
   p
+
+let run_lwt fn =
+  Fiber.check ();
+  let p = fn () in
+  try
+    Fiber.check ();
+    Promise.await_lwt p
+  with Eio.Cancel.Cancelled _ as ex ->
+    Lwt.cancel p;
+    raise ex
