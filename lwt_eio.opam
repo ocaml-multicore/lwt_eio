@@ -7,6 +7,7 @@ maintainer: ["talex5@gmail.com"]
 authors: ["Thomas Leonard"]
 license: "ISC"
 homepage: "https://github.com/ocaml-multicore/lwt_eio"
+doc: "https://ocaml-multicore.github.io/lwt_eio"
 bug-reports: "https://github.com/ocaml-multicore/lwt_eio/issues"
 depends: [
   "dune" {>= "2.9"}
