@@ -6,6 +6,7 @@
 (license ISC)
 (authors "Thomas Leonard")
 (maintainers "talex5@gmail.com")
+(documentation "https://ocaml-multicore.github.io/lwt_eio")
 (package
  (name lwt_eio)
  (synopsis "Run Lwt code within Eio")
