@@ -51,8 +51,8 @@ module Eio_server = struct
         (`Tcp (Eio.Net.Ipaddr.V4.loopback, port)) in
     traceln "Eio fiber waiting for connections on %d..." port;
     while true do
-      Eio.Net.accept_sub ~sw socket ~on_error:(traceln "Eio connection failed: %a" Fmt.exn)
-        (fun ~sw:_ flow addr ->
+      Eio.Net.accept_fork ~sw socket ~on_error:(traceln "Eio connection failed: %a" Fmt.exn)
+        (fun flow addr ->
            Stream.add prod (Fmt.str "Got connection from %a via Eio@." Eio.Net.Sockaddr.pp addr);
            handle_client flow (prod, cons)
         )
