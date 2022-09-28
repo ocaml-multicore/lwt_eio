@@ -1,6 +1,6 @@
 # Lwt_eio - run Lwt code from within Eio
 
-Lwt_eio is a Lwt engine that uses Eio.
+Lwt_eio is a Lwt engine that uses [Eio][].
 It can be used to run Lwt and Eio code in a single domain.
 It allows converting existing code to Eio incrementally.
 
@@ -61,11 +61,10 @@ The first step is to replace `Lwt_main.run`, and check that the program still wo
 
 # Eio_main.run @@ fun env ->
   Lwt_eio.with_event_loop ~clock:env#clock @@ fun _ ->
-  Lwt_eio.Promise.await_lwt begin
-    let input = Lwt_io.(of_bytes ~mode:input)
-      (Lwt_bytes.of_bytes (Bytes.of_string "b\na\nd\nc\n")) in
-    sort input
-  end;;
+  Lwt_eio.run_lwt @@ fun () ->
+  let input = Lwt_io.(of_bytes ~mode:input)
+                (Lwt_bytes.of_bytes (Bytes.of_string "b\na\nd\nc\n")) in
+  sort input;;
 a
 b
 c
@@ -74,9 +73,17 @@ d
 ```
 
 Here, we're using the Eio event loop instead of the normal Lwt one,
-but everything else stays the same.
+but everything else stays the same:
 
-Note: When I first tried this, it failed with `Fatal error: exception Unhandled`
+1. `Eio_main.run` starts the Eio event loop, replacing `Lwt_main.run`.
+2. `Lwt_eio.with_event_loop` starts the Lwt event loop, using Eio as its backend.
+3. `Lwt_eio.run_lwt` switches from Eio context to Lwt context.
+
+Any piece of code is either Lwt code or Eio code.
+You use `run_lwt` and `run_eio` to switch back and forth as necessary
+(`run_lwt` lets Eio code call Lwt code, while `run_eio` lets Lwt code call Eio).
+
+Note: When I first tried the conversion, it failed with `Fatal error: exception Unhandled`
 because I'd forgotten to flush stdout in the Lwt code.
 That meant that `sort` returned before Lwt had completely finished and then it
 tried to flush lazily after the Eio loop had finished, which is an error.
@@ -113,7 +120,7 @@ but it now uses `run_eio` internally to read from the input using Eio.
 
 **Warning:** It's important not to call Eio functions directly from Lwt, but instead wrap such code with `run_eio`.
 If you replace the `Lwt_eio.run_eio @@ fun () ->` line with `Lwt.return @@`
-then it will appear to work in simple cases, but it will act as a blocking read.
+then it will appear to work in simple cases, but it will act as a blocking read from Lwt's point of view.
 It's similar to trying to turn a blocking call like `Stdlib.input_line` into an asynchronous one
 using `Lwt.return`. It doesn't actually make it concurrent.
 
@@ -128,9 +135,8 @@ val sort : #Eio.Flow.source -> unit Lwt.t = <fun>
 
 # Eio_main.run @@ fun env ->
   Lwt_eio.with_event_loop ~clock:env#clock @@ fun _ ->
-  Lwt_eio.Promise.await_lwt begin
-    sort (Eio.Flow.string_source "b\na\nd\nc\n")
-  end;;
+  Lwt_eio.run_lwt @@ fun () ->
+  sort (Eio.Flow.string_source "b\na\nd\nc\n");;
 a
 b
 c
@@ -164,10 +170,9 @@ To use the new version, we'll have to update `sort` to wrap its Lwt callback:
 ```ocaml
 # let sort ~src ~dst =
     process_lines ~src ~dst @@ fun lines ->
-    Lwt_eio.Promise.await_lwt begin
-      let* () = Lwt.pause () in       (* Simulate async work *)
-      Lwt.return (List.sort String.compare lines)
-    end;;
+    Lwt_eio.run_lwt @@ fun () ->
+    let* () = Lwt.pause () in       (* Simulate async work *)
+    Lwt.return (List.sort String.compare lines);;
 val sort : src:#Eio.Flow.source -> dst:#Eio.Flow.sink -> unit = <fun>
 ```
 
@@ -261,3 +266,5 @@ If an Eio fiber is cancelled while running `run_lwt`, it cancels the Lwt promise
 If the Lwt promise returned by `run_eio` is cancelled, the Eio fiber is cancelled too.
 
 See [test/test.md](./test/test.md) for some tests of this.
+
+[Eio]: https://github.com/ocaml-multicore/eio
