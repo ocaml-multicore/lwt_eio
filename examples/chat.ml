@@ -38,7 +38,7 @@ module Eio_server = struct
          try
            while true do
              let buf = Cstruct.create 100 in
-             let len = Eio.Flow.read flow buf in
+             let len = Eio.Flow.single_read flow buf in
              Stream.add prod (Cstruct.to_string buf ~len)
            done
          with End_of_file ->
