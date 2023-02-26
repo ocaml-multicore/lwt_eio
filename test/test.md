@@ -168,3 +168,14 @@ Trying to run Lwt code from an already-cancelled context fails immediately:
   );;
 Exception: Failure "Simulated error".
 ```
+
+## Cleanup
+
+After finishing with our mainloop, the old Lwt engine is ready for use again:
+
+```ocaml
+# run ignore;;
+- : unit = ()
+# Lwt_main.run (Lwt_unix.sleep 0.01);;
+- : unit = ()
+```
