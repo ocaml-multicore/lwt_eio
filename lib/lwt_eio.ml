@@ -75,30 +75,28 @@ let make_engine ~sw ~clock = object
     )
 end
 
-type no_return = |
-
 (* Run an Lwt event loop until [user_promise] resolves. Raises [Exit] when done. *)
-let main ~clock user_promise : no_return =
-  Switch.run @@ fun sw ->
-  if Option.is_some !loop_switch then invalid_arg "Lwt_eio event loop already running";
-  Switch.on_release sw (fun () -> loop_switch := None);
-  loop_switch := Some sw;
-  Lwt_engine.set (make_engine ~sw ~clock);
-  (* An Eio fiber may resume an Lwt thread while in [Lwt_engine.iter] and forget to call [notify].
-     If that called [Lwt.pause] then it wouldn't wake up, so handle this common case here. *)
-  Lwt.register_pause_notifier (fun _ -> notify ());
-  Lwt_main.run user_promise;
-  (* Stop any event fibers still running: *)
-  raise Exit
+let main ~clock user_promise =
+  let old_engine = Lwt_engine.get () in
+  try
+    Switch.run @@ fun sw ->
+    if Option.is_some !loop_switch then invalid_arg "Lwt_eio event loop already running";
+    Switch.on_release sw (fun () -> loop_switch := None);
+    loop_switch := Some sw;
+    Lwt_engine.set ~destroy:false (make_engine ~sw ~clock);
+    (* An Eio fiber may resume an Lwt thread while in [Lwt_engine.iter] and forget to call [notify].
+       If that called [Lwt.pause] then it wouldn't wake up, so handle this common case here. *)
+    Lwt.register_pause_notifier (fun _ -> notify ());
+    Lwt_main.run user_promise;
+    (* Stop any event fibers still running: *)
+    raise Exit
+  with Exit ->
+    Lwt_engine.set old_engine
 
 let with_event_loop ~clock fn =
   let p, r = Lwt.wait () in
   Switch.run @@ fun sw ->
-  Fiber.fork ~sw (fun () ->
-      match main ~clock p with
-      | _ -> .
-      | exception Exit -> ()
-    );
+  Fiber.fork ~sw (fun () -> main ~clock p);
   Fun.protect (fun () -> fn Token.v)
     ~finally:(fun () ->
         Lwt.wakeup r ();
