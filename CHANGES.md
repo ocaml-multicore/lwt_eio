@@ -1,3 +1,11 @@
+## v0.3
+
+- Restore the old Lwt engine after finishing (@talex5 #16, reported by @tmcgilchrist).
+
+- Use `run_lwt` in documentation (@talex5 #13).
+
+- Update for Eio deprecations (@talex5 #12 #14).
+
 ## v0.2
 
 - Add some tests and documentation of the internals (@talex5 #9).
