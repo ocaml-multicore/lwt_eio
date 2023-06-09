@@ -105,7 +105,7 @@ module Lwt_server = struct
     traceln "Lwt thread waiting for connections on %d..." port;
     let rec aux () =
       let* client, addr = Lwt_unix.accept socket in
-      let addr = match addr with Lwt_unix.ADDR_INET (h, p) -> `Tcp (Eio_unix.Ipaddr.of_unix h, p) | _ -> assert false in
+      let addr = match addr with Lwt_unix.ADDR_INET (h, p) -> `Tcp (Eio_unix.Net.Ipaddr.of_unix h, p) | _ -> assert false in
       Stream.add prod (Fmt.str "Got connection from %a via Lwt@." Eio.Net.Sockaddr.pp addr);
       Lwt.dont_wait
         (fun () -> handle_client client (prod, cons))

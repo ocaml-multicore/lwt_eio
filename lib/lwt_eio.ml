@@ -8,10 +8,6 @@ module Token = struct
   let v : t = ()
 end
 
-let ignore_cancel = function
-  | Cancel -> ()
-  | ex -> raise ex
-
 (* Call this to cause the current [Lwt_engine.iter] to return. *)
 let ready = ref (lazy ())
 
@@ -25,9 +21,12 @@ let notify () = Lazy.force !ready
 (* Run [fn] in a new fiber and return a lazy value that can be forced to cancel it. *)
 let fork_with_cancel ~sw fn =
   let cancel = ref None in
-  Fiber.fork_sub ~sw ~on_error:ignore_cancel (fun sw ->
-      cancel := Some (lazy (try Switch.fail sw Cancel with Invalid_argument _ -> ()));
-      fn ()
+  Fiber.fork ~sw (fun () ->
+      try
+        Eio.Cancel.sub @@ fun cc ->
+        cancel := Some (lazy (try Eio.Cancel.cancel cc Cancel with Invalid_argument _ -> ()));
+        fn ()
+      with Eio.Cancel.Cancelled Cancel -> ()
     );
   (* The forked fiber runs first, so [cancel] must be set by now. *)
   Option.get !cancel
