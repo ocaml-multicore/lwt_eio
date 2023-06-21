@@ -45,6 +45,33 @@ let fork_with_cancel ~sw fn =
     Option.get !cancel
   )
 
+(* Lwt wants to set SIGCHLD to its own handler, but some Eio backends also install a handler for it.
+   Both Lwt and Eio need to be notified, as they may each have child processes to monitor.
+
+   There are two cases:
+
+   1. Eio installs its handler first, then Lwt tries to replace it while Eio is running.
+      We intercept that attempt and prevent the handler from changing.
+
+   2. Lwt installs its handler first (e.g. because someone ran a Lwt event loop for a bit before using Eio).
+      In that case, Eio will already have replaced Lwt's handler by the time we get called.
+
+   Either way, Eio ends up owning the installed handler. We also want things to continue working if the Eio
+   event loop finishes and then the application runs a plain Lwt loop. That's why we use [register_immediate],
+   rather than running an Eio fiber.
+
+   We also send an extra notification initially, in case we missed one during the hand-over. *)
+let install_sigchld_handler = lazy (
+  if not Sys.win32 then (
+    Eio_unix.Process.install_sigchld_handler ();
+    let rec register () =
+      ignore (Eio.Condition.register_immediate Eio_unix.Process.sigchld register : Eio.Condition.request);
+      Lwt_unix.handle_signal Sys.sigchld
+    in
+    register ()
+  )
+)
+
 let make_engine ~sw ~clock = object
   inherit Lwt_engine.abstract
 
@@ -78,6 +105,9 @@ let make_engine ~sw ~clock = object
       Eio.Cancel.protect (fun () -> callback (); notify ())
     )
 
+  method! forwards_signal signum =
+    signum = Sys.sigchld
+
   method iter block =
     if block then (
       let p, r = Promise.create () in
@@ -110,6 +140,7 @@ let main ~clock user_promise =
     Lwt_engine.set old_engine
 
 let with_event_loop ~clock fn =
+  Lazy.force install_sigchld_handler;
   let p, r = Lwt.wait () in
   Switch.run @@ fun sw ->
   Fiber.fork ~sw (fun () -> main ~clock p);

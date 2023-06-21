@@ -10,9 +10,9 @@ homepage: "https://github.com/ocaml-multicore/lwt_eio"
 doc: "https://ocaml-multicore.github.io/lwt_eio"
 bug-reports: "https://github.com/ocaml-multicore/lwt_eio/issues"
 depends: [
-  "dune" {>= "2.9"}
-  "eio" {>= "0.10"}
-  "lwt"
+  "dune" {>= "3.8"}
+  "eio" {>= "0.11"}
+  "lwt" {>= "5.7.0"}
   "mdx" {>= "1.10.0" & with-test}
   "eio_main" {with-test}
   "odoc" {with-doc}
@@ -26,11 +26,9 @@ build: [
     name
     "-j"
     jobs
-    "--promote-install-files=false"
     "@install"
     "@runtest" {with-test}
     "@doc" {with-doc}
   ]
-  ["dune" "install" "-p" name "--create-install-files" name]
 ]
 dev-repo: "git+https://github.com/ocaml-multicore/lwt_eio.git"

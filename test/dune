@@ -1,2 +1,5 @@
 (mdx
-  (packages lwt_eio))
+  (deps
+    (env_var "EIO_BACKEND")
+    (package lwt_eio)
+    (package eio_main)))
