@@ -31,6 +31,7 @@ end
 
 val run_eio : (unit -> 'a) -> 'a Lwt.t 
 (** [run_eio fn] allows running Eio code from within a Lwt function.
+    
     It runs [fn ()] in a new Eio fiber and returns a promise for the result.
     If the returned promise is cancelled, it will cancel the Eio fiber.
     The new fiber is attached to the Lwt event loop's switch and will also be
@@ -38,12 +39,27 @@ val run_eio : (unit -> 'a) -> 'a Lwt.t
 
 val run_lwt : (unit -> 'a Lwt.t) -> 'a
 (** [run_lwt fn] allows running Lwt code from within an Eio function.
+
     It runs [fn ()] to create a Lwt promise and then awaits it.
+    If the Eio fiber is cancelled, the Lwt promise is cancelled too.
+
+    This can only be called from the domain running Lwt.
+    For other domains, use {!run_lwt_in_main} instead. *)
+
+val run_lwt_in_main : (unit -> 'a Lwt.t) -> 'a
+(** [run_lwt_in_main fn] schedules [fn ()] to run in Lwt's domain
+    and waits for the result.
+
+    It is similar to {!Lwt_preemptive.run_in_main},
+    but allows other Eio fibers to run while it's waiting.
+    It can be called from any Eio domain.
+
     If the Eio fiber is cancelled, the Lwt promise is cancelled too. *)
 
 val notify : unit -> unit
 (** [notify ()] causes [Lwt_engine.iter] to return,
     indicating that the event loop should run the hooks and resume yielded threads.
+
     Ideally, you should call this when an Eio fiber wakes up a Lwt thread, e.g. by resolving a Lwt promise.
     In most cases however this isn't really needed,
     since [Lwt_unix.yield] is deprecated and [Lwt.pause] will call this automatically. *)
