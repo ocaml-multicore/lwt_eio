@@ -157,3 +157,48 @@ let run_lwt fn =
   with Eio.Cancel.Cancelled _ as ex ->
     Lwt.cancel p;
     raise ex
+
+module Lf_queue = Eio_utils.Lf_queue
+
+(* Jobs to be run in the main Lwt domain. *)
+let jobs : (unit -> unit) Lf_queue.t = Lf_queue.create ()
+
+let job_notification =
+  Lwt_unix.make_notification
+    (fun () ->
+       (* Take the first job. The queue is never empty at this point. *)
+       let thunk = Lf_queue.pop jobs |> Option.get in
+       thunk ()
+    )
+
+let run_in_main_dont_wait f =
+  (* Add the job to the queue. *)
+  Lf_queue.push jobs f;
+  (* Notify the main thread. *)
+  Lwt_unix.send_notification job_notification
+
+let run_lwt_in_main f =
+  let cancel = ref (fun () -> assert false) in
+  let p, r = Eio.Promise.create () in
+  run_in_main_dont_wait (fun () ->
+      let thread = f () in
+      cancel := (fun () -> Lwt.cancel thread);
+      Lwt.on_any thread
+        (Eio.Promise.resolve_ok r)
+        (Eio.Promise.resolve_error r)
+    );
+  match
+    Fiber.check ();
+    Eio.Promise.await p
+  with
+  | Ok x -> x
+  | Error ex -> raise ex
+  | exception (Eio.Cancel.Cancelled _ as ex) ->
+    let cancelled, set_cancelled = Eio.Promise.create () in
+    run_in_main_dont_wait (fun () ->
+        (* By the time this runs, [cancel] must have been set. *)
+        !cancel ();
+        Eio.Promise.resolve set_cancelled ()
+      );
+    Eio.Cancel.protect (fun () -> Eio.Promise.await cancelled);
+    raise ex

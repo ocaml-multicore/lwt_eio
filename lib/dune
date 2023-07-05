@@ -1,4 +1,4 @@
 (library
   (name lwt_eio)
   (public_name lwt_eio)
-  (libraries eio.unix lwt.unix))
+  (libraries eio.unix eio.utils lwt.unix))

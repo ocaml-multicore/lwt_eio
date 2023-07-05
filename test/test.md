@@ -179,3 +179,70 @@ After finishing with our mainloop, the old Lwt engine is ready for use again:
 # Lwt_main.run (Lwt_unix.sleep 0.01);;
 - : unit = ()
 ```
+
+## Running Lwt code from another domain
+
+A new Eio-only domain runs a job in the original Lwt domain.
+The Eio domain is still running while it waits, allowing it to resolve an Lwt promise
+and cause the original job to finish and return its result to the Eio domain:
+
+```ocaml
+# Eio_main.run @@ fun env ->
+  Lwt_eio.with_event_loop ~clock:env#clock @@ fun _ ->
+  let lwt_domain = Domain.self () in
+  let pp_domain f d =
+    if d = lwt_domain then Fmt.string f "Lwt domain"
+    else Fmt.string f "new Eio domain"
+  in
+  traceln "Lwt running in %a" pp_domain lwt_domain;
+  Eio.Domain_manager.run env#domain_mgr (fun () ->
+    let eio_domain = Domain.self () in
+    traceln "Eio running in %a" pp_domain eio_domain;
+    let p, r = Lwt.wait () in
+    let result =
+      Fiber.first
+        (fun () ->
+           Lwt_eio.run_lwt_in_main (fun () ->
+              traceln "Lwt callback running %a" pp_domain (Domain.self ());
+              let+ p = p in
+              p ^ "L"
+           )
+         )
+         (fun () ->
+            Lwt_eio.run_lwt_in_main (fun () -> Lwt.wakeup r "E"; Lwt.return_unit);
+            Fiber.await_cancel ()
+         )
+    in
+    traceln "Result: %S" result
+  );;
++Lwt running in Lwt domain
++Eio running in new Eio domain
++Lwt callback running Lwt domain
++Result: "EL"
+- : unit = ()
+```
+
+Cancelling the Eio fiber cancels the Lwt job too:
+
+```ocaml
+# Eio_main.run @@ fun env ->
+  Lwt_eio.with_event_loop ~clock:env#clock @@ fun _ ->
+  Eio.Domain_manager.run env#domain_mgr (fun () ->
+    let p, r = Lwt.task () in
+    Fiber.both
+      (fun () ->
+         Lwt_eio.run_lwt_in_main (fun () ->
+            traceln "Starting Lwt callback...";
+            Lwt.catch
+              (fun () -> p)
+              (fun ex -> traceln "Lwt caught: %a" Fmt.exn ex; raise ex)
+         )
+       )
+       (fun () ->
+          failwith "Simulated error"
+       )
+  );;
++Starting Lwt callback...
++Lwt caught: Lwt.Resolution_loop.Canceled
+Exception: Failure "Simulated error".
+```
