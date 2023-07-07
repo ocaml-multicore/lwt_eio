@@ -11,6 +11,13 @@ end
 (* Call this to cause the current [Lwt_engine.iter] to return. *)
 let ready = ref (lazy ())
 
+(* Indicates that [Lwt_unix.fork] has been called and we're the child process.
+   Lwt tries to reinitialise the Lwt engine in the child in case the user wants
+   to continue using Lwt there (rather than execing), but we don't support that.
+   Make sure the reinitialisation doesn't break things (e.g. by adding bogus
+   cancellation requests to the io_uring). *)
+let is_forked = ref false
+
 (* While the Lwt event loop is running, this is the switch that contains any fibers handling Lwt operations.
    Lwt does not use structured concurrency, so it can spawn background threads without explicitly taking a
    switch argument, which is why we need to use a global variable here. *)
@@ -20,16 +27,23 @@ let notify () = Lazy.force !ready
 
 (* Run [fn] in a new fiber and return a lazy value that can be forced to cancel it. *)
 let fork_with_cancel ~sw fn =
-  let cancel = ref None in
-  Fiber.fork ~sw (fun () ->
-      try
-        Eio.Cancel.sub @@ fun cc ->
-        cancel := Some (lazy (try Eio.Cancel.cancel cc Cancel with Invalid_argument _ -> ()));
-        fn ()
-      with Eio.Cancel.Cancelled Cancel -> ()
-    );
-  (* The forked fiber runs first, so [cancel] must be set by now. *)
-  Option.get !cancel
+  if !is_forked then lazy (failwith "Can't use Eio in a forked child process")
+  else (
+    let cancel = ref None in
+    Fiber.fork ~sw (fun () ->
+        try
+          Eio.Cancel.sub @@ fun cc ->
+          cancel := Some (lazy (
+              if not !is_forked then (
+                try Eio.Cancel.cancel cc Cancel with Invalid_argument _ -> ()
+              )
+            ));
+          fn ()
+        with Eio.Cancel.Cancelled Cancel -> ()
+      );
+    (* The forked fiber runs first, so [cancel] must be set by now. *)
+    Option.get !cancel
+  )
 
 let make_engine ~sw ~clock = object
   inherit Lwt_engine.abstract
@@ -72,6 +86,9 @@ let make_engine ~sw ~clock = object
     ) else (
       Fiber.yield ()
     )
+
+  method! fork =
+    is_forked := true
 end
 
 (* Run an Lwt event loop until [user_promise] resolves. Raises [Exit] when done. *)
