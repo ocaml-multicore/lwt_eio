@@ -1,3 +1,16 @@
+## v0.4
+
+- Get Lwt and Eio to share the SIGCHLD handler (@talex5 #19).  
+  Otherwise, Lwt replaces Eio's handler and may prevent Eio from noticing child processes finishing.
+
+- Don't allow cancelling things after forking (@talex5 #21).  
+  With io_uring, this will mess up the parent's ring.
+
+- Add `Lwt_eio.run_lwt_in_main` (@talex5 #20).  
+  This is useful if your program uses multiple Eio domains and you want to run some Lwt code from any of them.
+
+- Fix some Eio deprecation warnings (@talex5 #18).  
+
 ## v0.3
 
 - Restore the old Lwt engine after finishing (@talex5 #16, reported by @tmcgilchrist).
