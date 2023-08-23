@@ -1,4 +1,4 @@
-(lang dune 2.9)
+(lang dune 3.8)
 (name lwt_eio)
 (formatting disabled)
 (generate_opam_files true)
@@ -12,8 +12,8 @@
  (synopsis "Run Lwt code within Eio")
  (description "An Lwt engine that allows running Lwt within an Eio event loop.")
  (depends
-  (eio (>= 0.10))
-  lwt
+  (eio (>= 0.11))
+  (lwt (>= 5.7.0))
   (mdx (and (>= 1.10.0) :with-test))
   (eio_main :with-test)))
-(using mdx 0.1)
+(using mdx 0.2)

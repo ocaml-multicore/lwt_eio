@@ -17,8 +17,7 @@ let run fn =
 
 ## Fairness
 
-Lwt and Eio fibers don't block each other, although `Lwt_main.run` does call `Lwt.wakeup_paused` twice
-during each iteration of the main loop, so the Lwt thread runs twice as often.
+Lwt and Eio fibers don't block each other:
 
 ```ocaml
 # run @@ fun () ->
@@ -42,19 +41,19 @@ during each iteration of the main loop, so the Lwt thread runs twice as often.
     );;
 +eio: i = 1
 +  lwt: i = 1
-+eio: i = 2
 +  lwt: i = 2
++eio: i = 2
 +  lwt: i = 3
 +eio: i = 3
 +  lwt: i = 4
-+  lwt: i = 5
 +eio: i = 4
-+  lwt: i = 6
-+  lwt: i = 7
++  lwt: i = 5
 +eio: i = 5
-+  lwt: i = 8
++  lwt: i = 6
 +eio: i = 6
++  lwt: i = 7
 +eio: i = 7
++  lwt: i = 8
 +eio: i = 8
 - : unit = ()
 ```
@@ -65,9 +64,34 @@ We can fork (as long we we're not using multiple domains):
 
 ```ocaml
 # run @@ fun () ->
-  let output = Lwt_eio.run_lwt (fun () -> Lwt_process.(pread (shell "echo test"))) in
+  let output = Lwt_eio.run_lwt (fun () -> Lwt_process.(pread (shell "sleep 0.1; echo test"))) in
   traceln "Subprocess produced %S" output;;
 +Subprocess produced "test\n"
+- : unit = ()
+```
+
+Lwt's SIGCHLD handling works:
+
+```ocaml
+# run @@ fun () ->
+  Lwt_eio.run_lwt (fun () ->
+     let p = Lwt_process.(open_process_none (shell "sleep 0.1; echo test")) in
+     let+ status = p#status in
+     assert (status = Unix.WEXITED 0)
+    );;
+test
+- : unit = ()
+```
+
+Eio processes work too:
+
+```ocaml
+# Eio_main.run @@ fun env ->
+  Lwt_eio.with_event_loop ~clock:env#clock @@ fun _ ->
+  Lwt_eio.run_lwt Lwt.pause;
+  let proc_mgr = Eio.Stdenv.process_mgr env in
+  Eio.Process.run proc_mgr ["echo"; "hello"];;
+hello
 - : unit = ()
 ```
 
