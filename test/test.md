@@ -270,3 +270,156 @@ Cancelling the Eio fiber cancels the Lwt job too:
 +Lwt caught: Lwt.Resolution_loop.Canceled
 Exception: Failure "Simulated error".
 ```
+
+## Debug mode
+
+In debug mode, we detect attempts to use Eio from Lwt context:
+
+```ocaml
+# Eio_main.run @@ fun env ->
+  Lwt_eio.with_event_loop ~debug:true ~clock:env#clock @@ fun _ ->
+  Lwt_eio.run_lwt @@ fun () ->
+  traceln "Traceln is permitted";
+  Fiber.yield ();
+  assert false
++Traceln is permitted
+WARNING: Attempt to perform effect in Lwt context
+Exception: Invalid_argument "Attempt to perform effect in Lwt context".
+```
+
+In a new fiber:
+
+```ocaml
+# Eio_main.run @@ fun env ->
+  Lwt_eio.with_event_loop ~debug:true ~clock:env#clock @@ fun _ ->
+  Switch.run @@ fun sw ->
+  Fiber.fork ~sw (fun () ->
+      Lwt_eio.run_lwt @@ fun () ->
+      Fiber.yield ();
+      assert false
+  );;
+WARNING: Attempt to perform effect in Lwt context
+Exception: Invalid_argument "Attempt to perform effect in Lwt context".
+```
+
+Resumed by the Lwt engine:
+
+```ocaml
+# Eio_main.run @@ fun env ->
+  Lwt_eio.with_event_loop ~debug:true ~clock:env#clock @@ fun _ ->
+  Switch.run @@ fun sw ->
+  let x =
+    let+ () = Lwt.pause () in
+    Fiber.yield ()
+  in
+  Lwt_eio.Promise.await_lwt x;;
+WARNING: Attempt to perform effect in Lwt context
+Exception: Invalid_argument "Attempt to perform effect in Lwt context".
+```
+
+Resumed by IO:
+
+```ocaml
+# Eio_main.run @@ fun env ->
+  Lwt_eio.with_event_loop ~debug:true ~clock:env#clock @@ fun _ ->
+  Switch.run @@ fun sw ->
+  let r, w = Eio_unix.pipe sw in
+  Fiber.both
+    (fun () ->
+       Lwt_eio.run_lwt @@ fun () ->
+       let r = Eio_unix.Resource.fd r in
+       Eio_unix.Fd.use_exn "lwt_read" r @@ fun r ->
+       let r = Lwt_unix.of_unix_file_descr r in
+       let buf = Bytes.create 1 in
+       let* got = Lwt_unix.read r buf 0 1 in
+       assert (got = 1);
+       traceln "Got %S" (Bytes.to_string buf);
+       Fiber.yield ();
+       assert false
+    )
+    (fun () -> Eio.Flow.copy_string "&" w);;
++Got "&"
+WARNING: Attempt to perform effect in Lwt context
+Exception: Invalid_argument "Attempt to perform effect in Lwt context".
+```
+
+Changing to the same mode is an error:
+
+```ocaml
+# Eio_main.run @@ fun env ->
+  Lwt_eio.with_event_loop ~debug:true ~clock:env#clock @@ fun _ ->
+  Lwt_eio.run_eio (fun () -> assert false);;
++WARNING: Exception: Failure("Already in Eio context!")
++         No backtrace available.
+Exception: Failure "Already in Eio context!".
+```
+
+```ocaml
+# Eio_main.run @@ fun env ->
+  Lwt_eio.with_event_loop ~debug:true ~clock:env#clock @@ fun _ ->
+  Lwt_eio.run_lwt @@ fun () ->
+  Lwt_eio.run_lwt (fun () -> assert false);;
++WARNING: Exception: Failure("Already in Lwt context!")
++         No backtrace available.
+Exception: Failure "Already in Lwt context!".
+```
+
+`await_eio` resumes in Lwt mode:
+
+```ocaml
+# Eio_main.run @@ fun env ->
+  Lwt_eio.with_event_loop ~debug:true ~clock:env#clock @@ fun _ ->
+  Switch.run @@ fun sw ->
+  let p, r = Promise.create () in
+  Fiber.both
+    (fun () ->
+       Lwt_eio.run_lwt @@ fun () ->
+       let* () = Lwt_eio.Promise.await_eio p in
+       Fiber.yield ();
+       assert false
+    )
+    (fun () -> Promise.resolve r ());;
+WARNING: Attempt to perform effect in Lwt context
+Exception: Invalid_argument "Attempt to perform effect in Lwt context".
+```
+
+`await_eio_result` resumes in Lwt mode:
+
+```ocaml
+# Eio_main.run @@ fun env ->
+  Lwt_eio.with_event_loop ~debug:true ~clock:env#clock @@ fun _ ->
+  Switch.run @@ fun sw ->
+  let p = Fiber.fork_promise ~sw (fun () -> Fiber.yield (); traceln "Eio done") in
+  Lwt_eio.run_lwt @@ fun () ->
+  let* () = Lwt_eio.Promise.await_eio_result p in
+  Fiber.yield ();
+  assert false;;
++Eio done
+WARNING: Attempt to perform effect in Lwt context
+Exception: Invalid_argument "Attempt to perform effect in Lwt context".
+```
+
+`run_eio` resumes in Lwt mode:
+
+```ocaml
+# Eio_main.run @@ fun env ->
+  Lwt_eio.with_event_loop ~debug:true ~clock:env#clock @@ fun _ ->
+  Switch.run @@ fun sw ->
+  Lwt_eio.run_lwt @@ fun () ->
+  let* () = Lwt_eio.run_eio Fiber.yield in
+  Fiber.yield ();
+  assert false;;
+WARNING: Attempt to perform effect in Lwt context
+Exception: Invalid_argument "Attempt to perform effect in Lwt context".
+```
+
+Debug mode is off by default:
+
+```ocaml
+# Eio_main.run @@ fun env ->
+  Lwt_eio.with_event_loop ~clock:env#clock @@ fun _ ->
+  Lwt_eio.run_lwt @@ fun () ->
+  Fiber.yield ();
+  Lwt.return "Didn't notice";;
+- : string = "Didn't notice"
+```

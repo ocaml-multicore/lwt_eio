@@ -23,12 +23,63 @@ let is_forked = ref false
    switch argument, which is why we need to use a global variable here. *)
 let loop_switch = ref None
 
+type debug_mode =
+  | Eio                 (* Effects are permitted *)
+  | Lwt                 (* Effects are not permitted *)
+  | Normal              (* We're not checking *)
+
+let mode = ref Normal
+
+let with_mode m fn =
+  match !mode, m with
+  | Normal, _ -> fn ()
+  | Lwt, Eio ->
+    mode := Eio;
+    begin
+      match fn () with
+      | x -> mode := Lwt; x
+      | exception ex -> mode := Lwt; raise ex
+    end
+  | Eio, Lwt ->
+    mode := Lwt;
+    Effect.Deep.match_with fn ()
+      { retc = (fun x -> mode := Eio; x);
+        exnc = (fun ex -> mode := Eio; raise ex);
+        effc = fun (type a) (e : a Effect.t) : ((a, _) Effect.Deep.continuation -> _) option ->
+            match e with
+            | Eio.Private.Effects.Get_context -> None
+            | _ ->
+              match !mode with
+              | Normal -> assert false
+              | Eio -> None
+              | Lwt ->
+                Printf.eprintf "WARNING: Attempt to perform effect in Lwt context\n";
+                Some (fun k ->
+                    if Printexc.backtrace_status () then
+                      Printexc.print_raw_backtrace stderr (Effect.Deep.get_callstack k 10);
+                    flush stderr;
+                    Effect.Deep.discontinue k (Invalid_argument "Attempt to perform effect in Lwt context")
+                  )
+      }
+  | Eio, Eio ->
+    let bt = Printexc.get_callstack (if Printexc.backtrace_status () then 20 else 0) in
+    let ex = Failure "Already in Eio context!" in
+    traceln "WARNING: %a" Fmt.exn_backtrace (ex, bt);
+    raise ex
+  | Lwt, Lwt ->
+    let bt = Printexc.get_callstack (if Printexc.backtrace_status () then 20 else 0) in
+    let ex = Failure "Already in Lwt context!" in
+    traceln "WARNING: %a" Fmt.exn_backtrace (ex, bt);
+    raise ex
+  | _, Normal -> assert false
+
 let notify () = Lazy.force !ready
 
 (* Run [fn] in a new fiber and return a lazy value that can be forced to cancel it. *)
 let fork_with_cancel ~sw fn =
   if !is_forked then lazy (failwith "Can't use Eio in a forked child process")
   else (
+    with_mode Eio @@ fun () ->
     let cancel = ref None in
     Fiber.fork ~sw (fun () ->
         try
@@ -83,14 +134,14 @@ let make_engine ~sw ~clock = object
     fork_with_cancel ~sw @@ fun () ->
     while true do
       Eio_unix.await_readable fd;
-      Eio.Cancel.protect (fun () -> callback (); notify ())
+      Eio.Cancel.protect (fun () -> with_mode Lwt callback; notify ())
     done
 
   method private register_writable fd callback =
     fork_with_cancel ~sw @@ fun () ->
     while true do
       Eio_unix.await_writable fd;
-      Eio.Cancel.protect (fun () -> callback (); notify ())
+      Eio.Cancel.protect (fun () -> with_mode Lwt callback; notify ())
     done
 
   method private register_timer delay repeat callback =
@@ -98,17 +149,18 @@ let make_engine ~sw ~clock = object
     if repeat then (
       while true do
         Eio.Time.sleep clock delay;
-        Eio.Cancel.protect (fun () -> callback (); notify ())
+        Eio.Cancel.protect (fun () -> with_mode Lwt callback; notify ())
       done
     ) else (
       Eio.Time.sleep clock delay;
-      Eio.Cancel.protect (fun () -> callback (); notify ())
+      Eio.Cancel.protect (fun () -> with_mode Lwt callback; notify ())
     )
 
   method! forwards_signal signum =
     signum = Sys.sigchld
 
   method iter block =
+    with_mode Eio @@ fun () ->
     if block then (
       let p, r = Promise.create () in
       ready := lazy (Promise.resolve r ());
@@ -129,6 +181,7 @@ let main ~clock user_promise =
     if Option.is_some !loop_switch then invalid_arg "Lwt_eio event loop already running";
     Switch.on_release sw (fun () -> loop_switch := None);
     loop_switch := Some sw;
+    with_mode Lwt @@ fun () ->
     Lwt_engine.set ~destroy:false (make_engine ~sw ~clock);
     (* An Eio fiber may resume an Lwt thread while in [Lwt_engine.iter] and forget to call [notify].
        If that called [Lwt.pause] then it wouldn't wake up, so handle this common case here. *)
@@ -139,9 +192,10 @@ let main ~clock user_promise =
   with Exit ->
     Lwt_engine.set old_engine
 
-let with_event_loop ~clock fn =
+let with_event_loop ?(debug=false) ~clock fn =
   Lazy.force install_sigchld_handler;
   let p, r = Lwt.wait () in
+  mode := if debug then Eio else Normal;
   Switch.run @@ fun sw ->
   Fiber.fork ~sw (fun () -> main ~clock p);
   Fun.protect (fun () -> fn Token.v)
@@ -162,26 +216,35 @@ module Promise = struct
     Promise.await_exn p
 
   let await_eio eio_promise =
+    with_mode Eio @@ fun () ->
     let sw = get_loop_switch () in
     let p, r = Lwt.wait () in
     Fiber.fork ~sw (fun () ->
-        Lwt.wakeup r (Promise.await eio_promise);
+        let x = Promise.await eio_promise in
+        with_mode Lwt @@ fun () ->
+        Lwt.wakeup r x;
         notify ()
       );
     p
 
   let await_eio_result eio_promise =
+    with_mode Eio @@ fun () ->
     let sw = get_loop_switch () in
     let p, r = Lwt.wait () in
     Fiber.fork ~sw (fun () ->
         match Promise.await eio_promise with
-        | Ok x -> Lwt.wakeup r x; notify ()
-        | Error ex -> Lwt.wakeup_exn r ex; notify ()
+        | Ok x ->
+          with_mode Lwt @@ fun () ->
+          Lwt.wakeup r x; notify ()
+        | Error ex ->
+          with_mode Lwt @@ fun () ->
+          Lwt.wakeup_exn r ex; notify ()
       );
     p
 end
 
 let run_eio fn =
+  with_mode Eio @@ fun () ->
   let sw = get_loop_switch () in
   let p, r = Lwt.task () in
   let cc = ref None in
@@ -189,8 +252,12 @@ let run_eio fn =
       Eio.Cancel.sub (fun cancel ->
           cc := Some cancel;
           match fn () with
-          | x -> Lwt.wakeup r x; notify ()
-          | exception ex -> Lwt.wakeup_exn r ex; notify ()
+          | x ->
+            with_mode Lwt @@ fun () ->
+            Lwt.wakeup r x; notify ()
+          | exception ex ->
+            with_mode Lwt @@ fun () ->
+            Lwt.wakeup_exn r ex; notify ()
         )
     );
   Lwt.on_cancel p (fun () -> Option.iter (fun cc -> Eio.Cancel.cancel cc Lwt.Canceled) !cc);
@@ -198,7 +265,7 @@ let run_eio fn =
 
 let run_lwt fn =
   Fiber.check ();
-  let p = fn () in
+  let p = with_mode Lwt fn in
   try
     Fiber.check ();
     Promise.await_lwt p
@@ -216,7 +283,7 @@ let job_notification =
     (fun () ->
        (* Take the first job. The queue is never empty at this point. *)
        let thunk = Lf_queue.pop jobs |> Option.get in
-       thunk ()
+       with_mode Lwt thunk
     )
 
 let run_in_main_dont_wait f =

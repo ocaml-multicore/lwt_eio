@@ -123,6 +123,7 @@ If you replace the `Lwt_eio.run_eio @@ fun () ->` line with `Lwt.return @@`
 then it will appear to work in simple cases, but it will act as a blocking read from Lwt's point of view.
 It's similar to trying to turn a blocking call like `Stdlib.input_line` into an asynchronous one
 using `Lwt.return`. It doesn't actually make it concurrent.
+Using `Lwt_eio.with_event_loop ~debug:true` will detect these problems, by blocking effects when in Lwt mode.
 
 We can now test it using an Eio flow:
 
@@ -134,7 +135,7 @@ We can now test it using an Eio flow:
 val sort : [> Eio.Flow.source_ty ] r -> unit Lwt.t = <fun>
 
 # Eio_main.run @@ fun env ->
-  Lwt_eio.with_event_loop ~clock:env#clock @@ fun _ ->
+  Lwt_eio.with_event_loop ~debug:true ~clock:env#clock @@ fun _ ->
   Lwt_eio.run_lwt @@ fun () ->
   sort (Eio.Flow.string_source "b\na\nd\nc\n");;
 a
@@ -183,7 +184,7 @@ We can therefore now call it directly from Eio:
 
 ```ocaml
 # Eio_main.run @@ fun env ->
-  Lwt_eio.with_event_loop ~clock:env#clock @@ fun _ ->
+  Lwt_eio.with_event_loop ~debug:true ~clock:env#clock @@ fun _ ->
   sort
     ~src:(Eio.Flow.string_source "b\na\nd\nc\n")
     ~dst:env#stdout;;

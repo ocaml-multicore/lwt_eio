@@ -11,9 +11,13 @@ module Token : sig
       existing code. *)
 end
 
-val with_event_loop : clock:_ Eio.Time.clock -> (Token.t -> 'a) -> 'a
+val with_event_loop : ?debug:bool -> clock:_ Eio.Time.clock -> (Token.t -> 'a) -> 'a
 (** [with_event_loop ~clock fn] starts an Lwt event loop running and then executes [fn t].
-    When that finishes, the event loop is stopped. *)
+    When that finishes, the event loop is stopped.
+
+    @param debug If [true] (the default is [false]), block attempts to perform effects in Lwt context.
+                 [Get_context] is allowed, so [traceln] still works,
+                 but this will detect cases where Lwt code tries to call Eio code directly. *)
 
 module Promise : sig
   val await_lwt : 'a Lwt.t -> 'a
