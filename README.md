@@ -111,8 +111,8 @@ We'll take an Eio flow instead of a Lwt_io input:
     let* () = write lines in
     Lwt_io.(flush stdout);;
 val process_lines :
-  #Eio.Flow.source -> (string list -> string list Lwt.t) -> unit Lwt.t =
-  <fun>
+  [> Eio.Flow.source_ty ] r ->
+  (string list -> string list Lwt.t) -> unit Lwt.t = <fun>
 ```
 
 Note that `process_lines` is still a Lwt function,
@@ -131,7 +131,7 @@ We can now test it using an Eio flow:
     process_lines src @@ fun lines ->
     let* () = Lwt.pause () in       (* Simulate async work *)
     Lwt.return (List.sort String.compare lines);;
-val sort : #Eio.Flow.source -> unit Lwt.t = <fun>
+val sort : [> Eio.Flow.source_ty ] r -> unit Lwt.t = <fun>
 
 # Eio_main.run @@ fun env ->
   Lwt_eio.with_event_loop ~clock:env#clock @@ fun _ ->
@@ -156,8 +156,8 @@ Let's finish converting `process_lines`:
        Eio.Flow.copy_string (line ^ "\n") dst
     );;
 val process_lines :
-  src:#Eio.Flow.source ->
-  dst:#Eio.Flow.sink -> (string list -> string list) -> unit = <fun>
+  src:[> Eio.Flow.source_ty ] r ->
+  dst:[> Eio.Flow.sink_ty ] r -> (string list -> string list) -> unit = <fun>
 ```
 
 Now `process_lines` is an Eio function. The `Lwt.t` types have disappeared from its signature.
@@ -173,7 +173,9 @@ To use the new version, we'll have to update `sort` to wrap its Lwt callback:
     Lwt_eio.run_lwt @@ fun () ->
     let* () = Lwt.pause () in       (* Simulate async work *)
     Lwt.return (List.sort String.compare lines);;
-val sort : src:#Eio.Flow.source -> dst:#Eio.Flow.sink -> unit = <fun>
+val sort :
+  src:[> Eio.Flow.source_ty ] r -> dst:[> Eio.Flow.sink_ty ] r -> unit =
+  <fun>
 ```
 
 `sort` itself now looks like a normal Eio function from its signature.
@@ -199,7 +201,9 @@ Finally, we can convert `sort`'s callback to Eio code and drop the use of `Lwt` 
     process_lines ~src ~dst @@ fun lines ->
     Fiber.yield ();     (* Simulate async work *)
     List.sort String.compare lines;;
-val sort : src:#Eio.Flow.source -> dst:#Eio.Flow.sink -> unit = <fun>
+val sort :
+  src:[> Eio.Flow.source_ty ] r -> dst:[> Eio.Flow.sink_ty ] r -> unit =
+  <fun>
 
 # Eio_main.run @@ fun env ->
   sort
