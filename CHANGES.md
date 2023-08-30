@@ -1,3 +1,11 @@
+## v0.5
+
+- Add debug mode (@talex5 #24).  
+  Passing `Lwt_eio.with_event_loop ~debug:true` enables a new debug mode,
+  which detects attempts to perform effects from Lwt code.
+
+- Update to Eio 0.12 (@talex5 #23).
+
 ## v0.4
 
 - Get Lwt and Eio to share the SIGCHLD handler (@talex5 #19).  
