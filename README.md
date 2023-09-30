@@ -240,6 +240,8 @@ Key points:
   - If you are writing a library that requires `Lwt_eio`, consider having its main function (if any)
     take a value of type `Lwt_eio.Token.t`. This will remind users of the library to initialise Lwt_eio first.
 
+For a more in-depth example, see the [ICFP 2023 Lwt-to-Eio porting tutorial][icfp-tutorial].
+
 ## Limitations
 
 - Lwt code can only run in a single domain, and using `Lwt_eio` does not change this.
@@ -273,3 +275,4 @@ If the Lwt promise returned by `run_eio` is cancelled, the Eio fiber is cancelle
 See [test/test.md](./test/test.md) for some tests of this.
 
 [Eio]: https://github.com/ocaml-multicore/eio
+[icfp-tutorial]: https://github.com/ocaml-multicore/icfp-2023-eio-tutorial
