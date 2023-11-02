@@ -111,7 +111,7 @@ We'll take an Eio flow instead of a Lwt_io input:
     let* () = write lines in
     Lwt_io.(flush stdout);;
 val process_lines :
-  [> Eio.Flow.source_ty ] r ->
+  [> Eio__Flow.source_ty ] r ->
   (string list -> string list Lwt.t) -> unit Lwt.t = <fun>
 ```
 
@@ -132,7 +132,7 @@ We can now test it using an Eio flow:
     process_lines src @@ fun lines ->
     let* () = Lwt.pause () in       (* Simulate async work *)
     Lwt.return (List.sort String.compare lines);;
-val sort : [> Eio.Flow.source_ty ] r -> unit Lwt.t = <fun>
+val sort : [> Eio__Flow.source_ty ] r -> unit Lwt.t = <fun>
 
 # Eio_main.run @@ fun env ->
   Lwt_eio.with_event_loop ~debug:true ~clock:env#clock @@ fun _ ->
@@ -157,7 +157,7 @@ Let's finish converting `process_lines`:
        Eio.Flow.copy_string (line ^ "\n") dst
     );;
 val process_lines :
-  src:[> Eio.Flow.source_ty ] r ->
+  src:[> Eio__Flow.source_ty ] r ->
   dst:[> Eio.Flow.sink_ty ] r -> (string list -> string list) -> unit = <fun>
 ```
 
@@ -175,7 +175,7 @@ To use the new version, we'll have to update `sort` to wrap its Lwt callback:
     let* () = Lwt.pause () in       (* Simulate async work *)
     Lwt.return (List.sort String.compare lines);;
 val sort :
-  src:[> Eio.Flow.source_ty ] r -> dst:[> Eio.Flow.sink_ty ] r -> unit =
+  src:[> Eio__Flow.source_ty ] r -> dst:[> Eio.Flow.sink_ty ] r -> unit =
   <fun>
 ```
 
@@ -203,7 +203,7 @@ Finally, we can convert `sort`'s callback to Eio code and drop the use of `Lwt` 
     Fiber.yield ();     (* Simulate async work *)
     List.sort String.compare lines;;
 val sort :
-  src:[> Eio.Flow.source_ty ] r -> dst:[> Eio.Flow.sink_ty ] r -> unit =
+  src:[> Eio__Flow.source_ty ] r -> dst:[> Eio.Flow.sink_ty ] r -> unit =
   <fun>
 
 # Eio_main.run @@ fun env ->
