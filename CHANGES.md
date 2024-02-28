@@ -1,3 +1,9 @@
+## v0.5.1
+
+- Update tests for new MDX output (@talex5 #27).
+
+- Link to ICFP tutorial from README (@talex5 #26).
+
 ## v0.5
 
 - Add debug mode (@talex5 #24).  
