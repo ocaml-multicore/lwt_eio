@@ -1,17 +1,18 @@
 There are two example programs:
 
-- `simple.ml` runs a Lwt thread and an Eio fiber, communicating over a pair of streams.
+- `stream.ml` runs a Lwt thread and an Eio fiber, communicating over a pair of streams.
 - `chat.ml` runs a chat server.
   An Eio fiber accepts (loopback) connections on port 8001, while a Lwt thread accepts connections on port 8002.
   All clients on either port see the room history, which consists of all messages sent by any client as well as join/leave events.
 
 ```
-$ dune exec -- ./simple.exe
+$ dune exec -- ./stream.exe
 +Eio fiber waiting...
 Lwt thread sleeping...
 Lwt thread sending 1 to Eio
 +Eio fiber got "1" from Lwt
 +Eio fiber sleeping...
+Lwt thread waiting for response...
 +Eio fiber sending 2 to Lwt...
 +Eio fiber done
 Lwt got "2" from Eio
