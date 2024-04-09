@@ -23,7 +23,11 @@ module Promise : sig
   val await_lwt : 'a Lwt.t -> 'a
   (** [await_lwt p] allows an Eio fiber to wait for a Lwt promise [p] to be resolved,
       much like {!Eio.Promise.await} does for Eio promises.
-      This can only be used while the event loop created by {!with_event_loop} is still running. *)
+
+      This can only be used while the event loop created by {!with_event_loop} is still running.
+
+      Note: in the usual case of needing to run some Lwt code to generate the promise first, use {!run_lwt} instead.
+      That handles cancellation and also tracks the current context so that debug mode works. *)
 
   val await_eio : 'a Eio.Promise.t -> 'a Lwt.t
   (** [await_eio p] allows a Lwt thread to wait for an Eio promise [p] to be resolved.
