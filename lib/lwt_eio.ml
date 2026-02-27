@@ -123,8 +123,12 @@ let install_sigchld_handler = lazy (
   )
 )
 
+type Lwt_engine.engine_id += Engine_id__Eio_lwt
+
 let make_engine ~sw ~clock = object
   inherit Lwt_engine.abstract
+
+  method id = Engine_id__Eio_lwt
 
   method private cleanup =
     try Switch.fail sw Exit
