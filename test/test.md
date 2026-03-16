@@ -41,20 +41,20 @@ Lwt and Eio fibers don't block each other:
     );;
 +eio: i = 1
 +  lwt: i = 1
-+  lwt: i = 2
 +eio: i = 2
-+  lwt: i = 3
++  lwt: i = 2
 +eio: i = 3
-+  lwt: i = 4
++  lwt: i = 3
 +eio: i = 4
-+  lwt: i = 5
++  lwt: i = 4
 +eio: i = 5
-+  lwt: i = 6
++  lwt: i = 5
 +eio: i = 6
-+  lwt: i = 7
++  lwt: i = 6
 +eio: i = 7
-+  lwt: i = 8
++  lwt: i = 7
 +eio: i = 8
++  lwt: i = 8
 - : unit = ()
 ```
 
