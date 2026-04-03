@@ -1,3 +1,10 @@
+## v0.6
+
+- Update to Lwt version 6 (@raphael-proust #31).
+
+- Clarify use of `await_lwt` (@talex5 #30, reported by @patricoferris).  
+  Also, some minor improvements to the examples.
+
 ## v0.5.1
 
 - Update tests for new MDX output (@talex5 #27).
